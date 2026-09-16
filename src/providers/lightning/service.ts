@@ -170,7 +170,7 @@ export default class LightningProviderService extends AbstractPaymentProvider<Li
    */
   async authorizePayment(input: AuthorizePaymentInput): Promise<AuthorizePaymentOutput> {
     const current = this.requireData(input.data, "authorizePayment")
-    const data = await refreshSessionData(current)
+    const data = await refreshSessionData(current, { alwaysVerify: true })
     if (data.status === "paid") {
       return { status: PaymentSessionStatus.CAPTURED, data }
     }
@@ -185,7 +185,7 @@ export default class LightningProviderService extends AbstractPaymentProvider<Li
 
   async getPaymentStatus(input: GetPaymentStatusInput): Promise<GetPaymentStatusOutput> {
     const current = this.requireData(input.data, "getPaymentStatus")
-    const data = await refreshSessionData(current)
+    const data = await refreshSessionData(current, { alwaysVerify: true })
     switch (data.status) {
       case "paid":
         return { status: PaymentSessionStatus.CAPTURED, data }
@@ -208,7 +208,12 @@ export default class LightningProviderService extends AbstractPaymentProvider<Li
 
   /**
    * An unpaid invoice cannot be revoked, it just expires; the session is marked
-   * canceled so it is no longer verified. A paid one cannot be canceled at all.
+   * canceled so it is no longer verified. A paid one cannot be canceled at all:
+   * a merchant canceling a captured payment gets an error telling them to
+   * refund from the wallet. Medusa also calls cancel when its own bookkeeping
+   * fails right after this provider reported a payment captured; that call
+   * carries no payment id, and refusing it would only replace the real error,
+   * so it is logged and the data returned unchanged.
    */
   async cancelPayment(input: CancelPaymentInput): Promise<CancelPaymentOutput> {
     const current = input.data
@@ -216,6 +221,12 @@ export default class LightningProviderService extends AbstractPaymentProvider<Li
       return { data: current }
     }
     if (current.status === "paid") {
+      if (!input.context?.idempotency_key) {
+        this.logger_.warn(
+          `[lightning] cancel requested for paid session ${current.session_id} without a payment id (Medusa compensating a failed authorization); ${current.amount_sats} sats are in ${current.lightning_address}, nothing to revoke`
+        )
+        return { data: current }
+      }
       throw notAllowed(
         ErrorCodes.CANCEL_NOT_SUPPORTED,
         `Lightning payment ${current.session_id} is already paid (${current.amount_sats} sats to ${current.lightning_address}); refund it from your wallet`

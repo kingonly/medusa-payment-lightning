@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
-const runMock = vi.fn(async () => ({ result: undefined }))
+const runMock = vi.fn(async (_opts?: unknown) => ({ result: undefined, errors: [] as { error: unknown }[] }))
 vi.mock("@medusajs/medusa/core-flows", () => ({
   processPaymentWorkflow: () => ({ run: runMock }),
 }))
@@ -90,11 +90,16 @@ describe("refreshSessionData", () => {
     expect(fake.verifyRequests).toBe(1)
   })
 
-  it("stops verifying past the grace window and leaves final states alone", async () => {
+  it("stops verifying past the grace window unless told otherwise, and leaves final states alone", async () => {
     const dead = sessionData({
       expires_at: new Date(Date.now() - (LATE_SETTLEMENT_GRACE_SECONDS + 1) * 1000).toISOString(),
     })
     expect((await refreshSessionData(dead)).status).toBe("expired")
+    expect(fake.verifyRequests).toBe(0)
+    fake.settled.add(hashOf(dead.invoice))
+    expect((await refreshSessionData(dead, { alwaysVerify: true })).status).toBe("paid")
+    expect(fake.verifyRequests).toBe(1)
+    fake.verifyRequests = 0
     const paid = sessionData({ status: "paid" })
     const canceled = sessionData({ status: "canceled" })
     expect(await refreshSessionData(paid)).toBe(paid)
@@ -107,10 +112,19 @@ describe("settlePaidSession", () => {
   it("hands the session to the process-payment workflow as authorized", async () => {
     const data = sessionData()
     const { container } = fakeContainer([])
-    await settlePaidSession(container, row(data))
+    await expect(settlePaidSession(container, row(data))).resolves.toBe(true)
     expect(runMock).toHaveBeenCalledWith({
       input: { action: "authorized", data: { session_id: data.session_id, amount: 1 } },
+      throwOnError: false,
     })
+  })
+
+  it("logs an error and reports not settled when the workflow finished with errors", async () => {
+    const data = sessionData()
+    const { container, logger } = fakeContainer([row(data)])
+    runMock.mockResolvedValueOnce({ result: undefined, errors: [{ error: new Error("inventory: out of stock") }] })
+    await expect(settlePaidSession(container, row(data))).resolves.toBe(false)
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("out of stock"))
   })
 })
 
@@ -122,10 +136,21 @@ describe("settlePaidSession under a concurrent settlement", () => {
     runMock.mockImplementationOnce(async () => {
       // The other instance won: by the time our workflow fails, the session is authorized.
       rows[0] = { ...rows[0], status: "authorized" }
-      throw new Error("Payment with payment_session_id already exists.")
+      // The message Medusa's db error mapper produces for the unique payment index.
+      throw new Error(`Payment with payment_session_id: ${data.session_id}, already exists.`)
     })
-    await expect(settlePaidSession(container, row(data, "pending_authorization"))).resolves.toBeUndefined()
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("settled concurrently"))
+    await expect(settlePaidSession(container, row(data, "pending_authorization"))).resolves.toBe(false)
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("already exists"))
+  })
+
+  it("rethrows the workflow error when the re-read itself fails", async () => {
+    const data = sessionData()
+    const { container, graph } = fakeContainer([row(data, "pending_authorization")])
+    runMock.mockImplementationOnce(async () => {
+      throw new Error("lock timeout")
+    })
+    graph.mockRejectedValueOnce(new Error("connection refused"))
+    await expect(settlePaidSession(container, row(data, "pending_authorization"))).rejects.toThrow("lock timeout")
   })
 
   it("rethrows when the session is still unsettled", async () => {
@@ -219,12 +244,12 @@ describe("store status route", () => {
     expect(runMock).not.toHaveBeenCalled()
   })
 
-  it("reports paid and settles an order that was awaiting payment", async () => {
+  it("reports paid and settles an order that was awaiting payment after responding", async () => {
     const data = sessionData()
     fake.settled.add(hashOf(data.invoice))
     const { body } = await call([row(data, "pending_authorization")], data.session_id)
     expect(body.payment_session.status).toBe("paid")
-    expect(runMock).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(runMock).toHaveBeenCalledTimes(1))
   })
 
   it("leaves cart completion to the storefront while the cart is open", async () => {

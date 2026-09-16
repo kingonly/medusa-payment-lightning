@@ -1,5 +1,5 @@
 import type { Logger, MedusaContainer } from "@medusajs/framework/types"
-import { ContainerRegistrationKeys, PaymentActions } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils"
 import { processPaymentWorkflow } from "@medusajs/medusa/core-flows"
 import { PROVIDER_ID_PREFIX } from "./constants"
 import { checkSettled } from "./lnurl"
@@ -28,6 +28,10 @@ export const isLightningProviderId = (providerId: string | null | undefined) =>
   typeof providerId === "string" && providerId.startsWith(PROVIDER_ID_PREFIX)
 
 const SESSION_FIELDS = ["id", "provider_id", "status", "amount", "currency_code", "data"]
+/** Medusa statuses a payment can still land on. */
+const OPEN_STATUSES = [PaymentSessionStatus.PENDING, PaymentSessionStatus.PENDING_AUTHORIZATION]
+/** Medusa statuses that mean the payment record exists. */
+const SETTLED_STATUSES = new Set<string>([PaymentSessionStatus.AUTHORIZED, PaymentSessionStatus.CAPTURED])
 
 export const loadPaymentSession = async (
   container: MedusaContainer,
@@ -53,7 +57,7 @@ export const listOpenLightningSessions = async (
     fields: SESSION_FIELDS,
     filters: {
       provider_id: { $like: `${PROVIDER_ID_PREFIX}%` },
-      status: ["pending", "pending_authorization"],
+      status: OPEN_STATUSES,
     },
   })
   return (data as PaymentSessionRow[]).filter(
@@ -64,6 +68,16 @@ export const listOpenLightningSessions = async (
   )
 }
 
+export interface RefreshOptions {
+  now?: number
+  /**
+   * Verify even past the grace window. The job and the status route stop
+   * polling after grace; a decision that settles or fails an order must not,
+   * since a payment observed by one check can otherwise be missed by the next.
+   */
+  alwaysVerify?: boolean
+}
+
 /**
  * Brings session data up to date against LNURL-verify. Paid and canceled are
  * final; an unpaid invoice past its expiry is reported expired but stays
@@ -72,11 +86,11 @@ export const listOpenLightningSessions = async (
  */
 export const refreshSessionData = async (
   data: LightningSessionData,
-  now = Date.now()
+  { now = Date.now(), alwaysVerify = false }: RefreshOptions = {}
 ): Promise<LightningSessionData> => {
   if (data.status === "paid" || data.status === "canceled") return data
   const next: LightningSessionData = { ...data }
-  if (isVerifiable(data, now) && (await checkSettled(data.verify_url))) {
+  if ((alwaysVerify || isVerifiable(data, now)) && (await checkSettled(data.verify_url))) {
     next.status = "paid"
     next.paid_at = new Date(now).toISOString()
     return next
@@ -87,16 +101,23 @@ export const refreshSessionData = async (
   return next
 }
 
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
 /**
  * Tells Medusa a Lightning session is paid. For a cart still open this
  * completes the cart (order created, payment authorized and captured); for an
  * order placed before the payment landed it authorizes the deferred session.
- * Idempotent: the workflow locks the cart and re-reads state.
+ *
+ * Returns true when this call settled the session. False means the session
+ * turned out to be settled already (another instance won the race) or the
+ * workflow reported a failure that left the payment recorded, which is logged
+ * at error level because the merchant has the funds and may lack an order.
+ * Throws when the workflow failed and the session is still open.
  */
 export const settlePaidSession = async (
   container: MedusaContainer,
   session: PaymentSessionRow
-): Promise<void> => {
+): Promise<boolean> => {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER) as Logger
   const amount =
     session.amount && typeof session.amount === "object"
@@ -104,24 +125,43 @@ export const settlePaidSession = async (
       : Number(session.amount)
   logger.info(`[lightning] payment session ${session.id} is paid; settling`)
   try {
-    await processPaymentWorkflow(container).run({
+    // With a cart still open the workflow completes the cart with
+    // continueOnPermanentFailure, so a failed order creation comes back in
+    // `errors` rather than as a rejection.
+    const { errors } = await processPaymentWorkflow(container).run({
       input: {
         action: PaymentActions.AUTHORIZED,
         data: { session_id: session.id, amount },
       },
+      throwOnError: false,
     })
+    if (errors?.length) {
+      const messages = errors.map((e) => errorMessage(e.error)).join("; ")
+      logger.error(
+        `[lightning] payment session ${session.id} is paid but Medusa could not finish settling it: ${messages}. Check the order in the admin and complete it manually.`
+      )
+      return false
+    }
+    return true
   } catch (error) {
-    // With several Medusa instances, each runs the settlement job and the
-    // status route, so two can settle the same session at once. The payment
-    // record is unique per session, so the loser fails inside Medusa; when the
-    // session is authorized afterwards the payment landed and nothing is wrong.
-    const current = await loadPaymentSession(container, session.id)
+    // Several instances run the job and the route, so two can settle the same
+    // session at once; Medusa keeps one payment per session and the loser
+    // fails inside the payment module. A failure after the payment committed
+    // looks the same from here. Either way the session is authorized and the
+    // funds are recorded; log what happened and do not count it as ours.
+    let current: PaymentSessionRow | null = null
+    try {
+      current = await loadPaymentSession(container, session.id)
+    } catch (lookupError) {
+      logger.warn(`[lightning] could not re-read ${session.id} after a failed settlement: ${errorMessage(lookupError)}`)
+      throw error
+    }
     if (current && SETTLED_STATUSES.has(current.status)) {
-      logger.info(`[lightning] payment session ${session.id} was settled concurrently`)
-      return
+      logger.warn(
+        `[lightning] payment session ${session.id} is authorized with its payment recorded; this settlement attempt failed with: ${errorMessage(error)}`
+      )
+      return false
     }
     throw error
   }
 }
-
-const SETTLED_STATUSES = new Set(["authorized", "captured"])

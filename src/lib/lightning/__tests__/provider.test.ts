@@ -256,14 +256,15 @@ describe("authorizePayment", () => {
     expect(paid.status).toBe(PaymentSessionStatus.CAPTURED)
   })
 
-  it("fails an invoice that expired past the grace window", async () => {
+  it("still verifies past the grace window: paid is captured, unpaid is an error", async () => {
     const provider = makeProvider()
     const { data } = await initiate(provider, 4.99)
     const dead = aged(data as LightningSessionData, LATE_SETTLEMENT_GRACE_SECONDS + 1)
     const before = fake.verifyRequests
-    const out = await provider.authorizePayment({ data: dead })
-    expect(out.status).toBe(PaymentSessionStatus.ERROR)
-    expect(fake.verifyRequests).toBe(before)
+    expect((await provider.authorizePayment({ data: dead })).status).toBe(PaymentSessionStatus.ERROR)
+    expect(fake.verifyRequests).toBe(before + 1)
+    fake.settled.add(hashOf(dead.invoice))
+    expect((await provider.authorizePayment({ data: dead })).status).toBe(PaymentSessionStatus.CAPTURED)
   })
 
   it("surfaces a verify outage instead of guessing", async () => {
@@ -321,8 +322,18 @@ describe("capture, cancel, delete, refund", () => {
     const out = await provider.cancelPayment({ data })
     expect(out.data).toMatchObject({ status: "canceled" })
     const paid = { ...(data as LightningSessionData), status: "paid" as const }
-    await expect(provider.cancelPayment({ data: paid })).rejects.toMatchObject({ code: "cancel_not_supported" })
-    await expect(provider.deletePayment({ data: paid })).rejects.toMatchObject({ code: "cancel_not_supported" })
+    const asAdmin = { data: paid, context: { idempotency_key: "pay_123" } }
+    await expect(provider.cancelPayment(asAdmin)).rejects.toMatchObject({ code: "cancel_not_supported" })
+    await expect(provider.deletePayment(asAdmin)).rejects.toMatchObject({ code: "cancel_not_supported" })
+  })
+
+  it("cancel without a payment id (Medusa compensating a failed authorization) logs and leaves paid data alone", async () => {
+    const logger = fakeLogger()
+    const provider = new LightningProviderService({ logger: logger as never }, { lightningAddress: "shop@breez.tips" } as never)
+    const { data } = await initiate(provider, 4.99)
+    const paid = { ...(data as LightningSessionData), status: "paid" as const }
+    expect(await provider.cancelPayment({ data: paid, context: {} })).toEqual({ data: paid })
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("nothing to revoke"))
   })
 
   it("cancel tolerates a session that never got invoice data", async () => {

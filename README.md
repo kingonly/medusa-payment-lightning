@@ -49,7 +49,9 @@ Settlement is observed, never pushed, and it does not depend on the browser stay
 - A scheduled job (every minute) verifies every open Lightning session and hands paid ones to Medusa's own process-payment workflow: it completes a cart the customer paid but never submitted, and authorizes an order that was placed before the payment arrived.
 - If the customer places the order before paying (a custom storefront may allow it), the session is left in `pending_authorization`, the order shows as awaiting payment, and the job or the next status poll settles it once the invoice is paid.
 - An invoice keeps being verified for 10 minutes after it expires, since a payment in flight at expiry can still land.
-- Several Medusa instances can run the job and the route at once. Settling the same session twice is safe: Medusa keeps one payment per session, and the instance that loses the race sees the session authorized and moves on. Medusa itself logs the lost race as an authorization error before recovering.
+- Authorization always verifies the invoice, even past the grace window, so a payment observed by the job cannot be missed by the decision that settles the order.
+- Running several Medusa instances needs the usual shared infrastructure: a shared locking provider (`@medusajs/locking-redis` or `locking-postgres`) and the Redis workflow engine, or a single instance in worker mode running scheduled jobs. Without it every instance runs the settlement job, and two can settle the same session at once. That is still safe: Medusa keeps one payment per session, the loser logs a warning with the underlying error and moves on, and Medusa logs the failed authorization attempt.
+- If Medusa's own bookkeeping fails after the provider reported a payment captured (an order that cannot be created, for example), the plugin logs an error naming the session: the merchant has the funds and should check the order in the admin.
 
 ## Requirements
 

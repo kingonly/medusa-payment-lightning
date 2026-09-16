@@ -39,15 +39,14 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     logger.warn(`[lightning] verify failed for ${id}: ${(e as Error).message}`)
   }
 
-  // An order placed before the payment landed waits in pending_authorization;
-  // seeing the payment here is sooner than the settlement job would.
-  if (data.status === "paid" && session.status === "pending_authorization") {
-    try {
-      await settlePaidSession(req.scope, session)
-    } catch (e) {
-      logger.error(`[lightning] settling ${id} failed, the settlement job will retry: ${(e as Error).message}`)
-    }
-  }
-
   res.json({ payment_session: toPublic(session.id, data) })
+
+  // An order placed before the payment landed waits in pending_authorization;
+  // seeing the payment here is sooner than the settlement job would. Runs
+  // after the response so the poll is not held up by the workflow.
+  if (data.status === "paid" && session.status === "pending_authorization") {
+    void settlePaidSession(req.scope, session).catch((e) => {
+      logger.error(`[lightning] settling ${id} failed, the settlement job will retry: ${(e as Error).message}`)
+    })
+  }
 }

@@ -27,8 +27,7 @@ export default async function settleLightningPayments(container: MedusaContainer
       try {
         const data = await refreshSessionData(session.data as never)
         if (data.status !== "paid") continue
-        await settlePaidSession(container, session)
-        settled++
+        if (await settlePaidSession(container, session)) settled++
       } catch (e) {
         logger.warn(`[lightning] settlement check failed for ${session.id}: ${(e as Error).message}`)
       }
