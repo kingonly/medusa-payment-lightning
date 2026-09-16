@@ -1,6 +1,6 @@
 import type { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import { listOpenLightningSessions } from "@breeztech/medusa-payment-lightning/lib/lightning"
+import { listOpenLightningSessions } from "medusa-payment-lightning/lib/lightning"
 
 /**
  * Lists the Lightning payment sessions the settlement job would verify.

@@ -1,8 +1,8 @@
 {
-  "name": "@breeztech/medusa-payment-lightning",
+  "name": "medusa-payment-lightning",
   "version": "0.1.0",
   "description": "Bitcoin (Lightning) payment provider for Medusa v2. Customers pay a Lightning invoice, funds land in the merchant's own Glow wallet; no node, no custody, no SDK.",
-  "author": "Breez (https://breez.technology)",
+  "author": "Roy Sheinfeld",
   "license": "MIT",
   "files": [
     ".medusa/server",
@@ -89,11 +89,11 @@
   "packageManager": "npm@11.9.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/breez/medusa-payment-lightning.git"
+    "url": "https://github.com/kingonly/medusa-payment-lightning.git"
   },
-  "homepage": "https://github.com/breez/medusa-payment-lightning#readme",
+  "homepage": "https://github.com/kingonly/medusa-payment-lightning#readme",
   "bugs": {
-    "url": "https://github.com/breez/medusa-payment-lightning/issues"
+    "url": "https://github.com/kingonly/medusa-payment-lightning/issues"
   },
   "dependencies": {
     "qrcode.react": "^4.2.0"

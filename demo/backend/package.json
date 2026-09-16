@@ -1,8 +1,8 @@
 {
   "name": "medusa-payment-lightning-demo-backend",
   "version": "0.0.1",
-  "description": "Medusa backend for the @breeztech/medusa-payment-lightning demo store.",
-  "author": "Breez (https://breez.technology)",
+  "description": "Medusa backend for the medusa-payment-lightning demo store.",
+  "author": "Roy Sheinfeld",
   "license": "MIT",
   "keywords": [
     "medusa",
@@ -17,7 +17,6 @@
     "start": "medusa start"
   },
   "dependencies": {
-    "@breeztech/medusa-payment-lightning": "file:../medusa-payment-lightning.tgz",
     "@medusajs/admin-sdk": "2.21.0",
     "@medusajs/admin-shared": "2.21.0",
     "@medusajs/caching": "2.21.0",
@@ -28,6 +27,7 @@
     "@medusajs/medusa": "2.21.0",
     "@medusajs/ui": "4.2.4",
     "@tanstack/react-query": "5.64.2",
+    "medusa-payment-lightning": "file:../medusa-payment-lightning.tgz",
     "react-i18next": "13.5.0",
     "react-router-dom": "7.18.2",
     "zod": "4.2.0"

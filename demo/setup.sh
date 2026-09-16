@@ -11,7 +11,7 @@ STARTER_COMMIT="9818886f06e493cb2249733d114d339aa216ef00"
 
 echo "==> Building and packing the plugin"
 (cd "$ROOT" && npm install && npm run build && npm pack --pack-destination "$DEMO" >/dev/null)
-mv -f "$DEMO"/breeztech-medusa-payment-lightning-*.tgz "$DEMO/medusa-payment-lightning.tgz"
+mv -f "$DEMO"/medusa-payment-lightning-[0-9]*.tgz "$DEMO/medusa-payment-lightning.tgz"
 
 echo "==> Installing the demo backend"
 # Installing the tarball by path (not just `npm install`) makes npm pick up a rebuilt plugin

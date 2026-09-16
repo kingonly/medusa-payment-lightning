@@ -21,7 +21,7 @@ module.exports = defineConfig({
   },
   plugins: [
     {
-      resolve: "@breeztech/medusa-payment-lightning",
+      resolve: "medusa-payment-lightning",
       options: {},
     },
   ],
@@ -31,7 +31,7 @@ module.exports = defineConfig({
       options: {
         providers: [
           {
-            resolve: "@breeztech/medusa-payment-lightning/providers/lightning",
+            resolve: "medusa-payment-lightning/providers/lightning",
             id: "lightning",
             options: {
               lightningAddress: process.env.LIGHTNING_ADDRESS,

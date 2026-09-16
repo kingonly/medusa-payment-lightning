@@ -1,4 +1,4 @@
-# @breeztech/medusa-payment-lightning
+# medusa-payment-lightning
 
 Accept Bitcoin over Lightning in a [Medusa](https://medusajs.com) v2 store. Customers pay a Lightning invoice from any wallet (Cash App, Strike, Phoenix, Glow, ...). The money lands in the merchant's own [Glow](https://breez.technology/glow/) wallet the moment it is paid.
 
@@ -62,7 +62,7 @@ Settlement is observed, never pushed, and it does not depend on the browser stay
 ## Install
 
 ```bash
-npm install @breeztech/medusa-payment-lightning
+npm install medusa-payment-lightning
 ```
 
 `medusa-config.ts`:
@@ -74,7 +74,7 @@ module.exports = defineConfig({
   // ...
   plugins: [
     {
-      resolve: "@breeztech/medusa-payment-lightning",
+      resolve: "medusa-payment-lightning",
       options: {},
     },
   ],
@@ -84,7 +84,7 @@ module.exports = defineConfig({
       options: {
         providers: [
           {
-            resolve: "@breeztech/medusa-payment-lightning/providers/lightning",
+            resolve: "medusa-payment-lightning/providers/lightning",
             id: "lightning",
             options: {
               lightningAddress: process.env.LIGHTNING_ADDRESS, // you@breez.tips
@@ -118,12 +118,12 @@ The provider refuses to start with a missing or non-breez.tips address, or an ex
 ### React component
 
 ```bash
-npm install @breeztech/medusa-payment-lightning
+npm install medusa-payment-lightning
 ```
 
 ```tsx
 "use client"
-import { LightningPayment } from "@breeztech/medusa-payment-lightning/storefront"
+import { LightningPayment } from "medusa-payment-lightning/storefront"
 
 <LightningPayment
   sessionId={paymentSession.id}          // payses_...
@@ -192,7 +192,7 @@ A cart total change (Medusa calls `updatePayment`) issues a fresh invoice for th
 `demo/` holds a Medusa backend configured with this plugin and an overlay for the [Medusa Next.js starter](https://github.com/medusajs/nextjs-starter-medusa) that wires `LightningPayment` into the review step of checkout. No Postgres install needed: the backend ships a script that runs an embedded one.
 
 ```bash
-git clone https://github.com/breez/medusa-payment-lightning
+git clone https://github.com/kingonly/medusa-payment-lightning
 cd medusa-payment-lightning
 ./demo/setup.sh                     # builds the plugin, installs backend + storefront
 # edit demo/backend/.env: LIGHTNING_ADDRESS=you@breez.tips
@@ -246,4 +246,4 @@ The plugin has no wallet of its own, so it depends on the Lightning address serv
 
 ## License
 
-MIT. Made by [Breez](https://breez.technology).
+MIT. Built by [Roy Sheinfeld](https://github.com/kingonly), co-founder of [Breez](https://breez.technology), whose Glow wallet the merchant receives into.

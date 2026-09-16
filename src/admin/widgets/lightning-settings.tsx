@@ -135,7 +135,7 @@ const LightningSettingsWidget = () => {
 
 export const config = defineWidgetConfig({
   zone: "store.details.after",
-  id: "breeztech-lightning-settings",
+  id: "medusa-payment-lightning-settings",
 })
 
 export default LightningSettingsWidget

@@ -2,7 +2,7 @@
 
 import { initiatePaymentSession, placeOrder } from "@lib/data/cart"
 import { getLightningPayment } from "@lib/data/lightning"
-import { LightningPayment } from "@breeztech/medusa-payment-lightning/storefront"
+import { LightningPayment } from "medusa-payment-lightning/storefront"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@medusajs/ui"
 import { useRouter } from "next/navigation"

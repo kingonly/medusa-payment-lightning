@@ -14,7 +14,7 @@ import {
   createPaymentCollectionForCartWorkflow,
   createPaymentSessionsWorkflow,
 } from "@medusajs/medusa/core-flows";
-import settleLightningPayments from "@breeztech/medusa-payment-lightning/jobs/settle-lightning-payments";
+import settleLightningPayments from "medusa-payment-lightning/jobs/settle-lightning-payments";
 
 // Exercises the order-first, pay-later path without spending sats: breez.tips
 // and Yadio are stubbed in-process, and the invoice reports settled once the

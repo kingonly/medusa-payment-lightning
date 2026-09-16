@@ -2,7 +2,7 @@
 
 import { sdk } from "@lib/config"
 import { getAuthHeaders } from "@lib/data/cookies"
-import type { LightningPayment } from "@breeztech/medusa-payment-lightning/storefront"
+import type { LightningPayment } from "medusa-payment-lightning/storefront"
 
 /**
  * Live status of a Lightning payment session. Runs on the server so the
