@@ -1,0 +1,82 @@
+/* Styling for the unstyled LightningPayment component, in the starter's visual language. */
+.lightning-payment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+.lightning-payment__amount {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.lightning-payment__fiat {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.lightning-payment__sats {
+  color: rgb(107 114 128);
+  font-size: 0.875rem;
+}
+.lightning-payment__qr {
+  display: inline-block;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 0.5rem;
+}
+.lightning-payment__qr svg {
+  display: block;
+}
+.lightning-payment__hint {
+  color: rgb(107 114 128);
+  font-size: 0.875rem;
+}
+.lightning-payment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.lightning-payment__button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: rgb(17 24 39);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+.lightning-payment__button:hover {
+  background: rgb(249 250 251);
+}
+.lightning-payment__button--wallet {
+  background: rgb(17 24 39);
+  border-color: rgb(17 24 39);
+  color: #fff;
+}
+.lightning-payment__button--wallet:hover {
+  background: rgb(31 41 55);
+}
+.lightning-payment__countdown {
+  font-size: 0.875rem;
+  color: rgb(107 114 128);
+  font-variant-numeric: tabular-nums;
+}
+.lightning-payment__status {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.lightning-payment[data-status="paid"] .lightning-payment__status {
+  color: rgb(22 163 74);
+}
+.lightning-payment[data-status="expired"] .lightning-payment__status,
+.lightning-payment[data-status="canceled"] .lightning-payment__status,
+.lightning-payment[data-status="error"] .lightning-payment__status {
+  color: rgb(220 38 38);
+}
