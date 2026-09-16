@@ -114,6 +114,30 @@ describe("settlePaidSession", () => {
   })
 })
 
+describe("settlePaidSession under a concurrent settlement", () => {
+  it("stays quiet when another instance settled the session first", async () => {
+    const data = sessionData()
+    const rows = [row(data, "pending_authorization")]
+    const { container, logger } = fakeContainer(rows)
+    runMock.mockImplementationOnce(async () => {
+      // The other instance won: by the time our workflow fails, the session is authorized.
+      rows[0] = { ...rows[0], status: "authorized" }
+      throw new Error("Payment with payment_session_id already exists.")
+    })
+    await expect(settlePaidSession(container, row(data, "pending_authorization"))).resolves.toBeUndefined()
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("settled concurrently"))
+  })
+
+  it("rethrows when the session is still unsettled", async () => {
+    const data = sessionData()
+    const { container } = fakeContainer([row(data, "pending_authorization")])
+    runMock.mockImplementationOnce(async () => {
+      throw new Error("database down")
+    })
+    await expect(settlePaidSession(container, row(data, "pending_authorization"))).rejects.toThrow("database down")
+  })
+})
+
 describe("listOpenLightningSessions", () => {
   it("returns only verifiable Lightning sessions", async () => {
     const open = sessionData()

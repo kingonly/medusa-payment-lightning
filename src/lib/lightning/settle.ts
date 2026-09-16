@@ -103,10 +103,25 @@ export const settlePaidSession = async (
       ? Number(session.amount.value)
       : Number(session.amount)
   logger.info(`[lightning] payment session ${session.id} is paid; settling`)
-  await processPaymentWorkflow(container).run({
-    input: {
-      action: PaymentActions.AUTHORIZED,
-      data: { session_id: session.id, amount },
-    },
-  })
+  try {
+    await processPaymentWorkflow(container).run({
+      input: {
+        action: PaymentActions.AUTHORIZED,
+        data: { session_id: session.id, amount },
+      },
+    })
+  } catch (error) {
+    // With several Medusa instances, each runs the settlement job and the
+    // status route, so two can settle the same session at once. The payment
+    // record is unique per session, so the loser fails inside Medusa; when the
+    // session is authorized afterwards the payment landed and nothing is wrong.
+    const current = await loadPaymentSession(container, session.id)
+    if (current && SETTLED_STATUSES.has(current.status)) {
+      logger.info(`[lightning] payment session ${session.id} was settled concurrently`)
+      return
+    }
+    throw error
+  }
 }
+
+const SETTLED_STATUSES = new Set(["authorized", "captured"])

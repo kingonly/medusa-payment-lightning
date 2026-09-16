@@ -49,6 +49,7 @@ Settlement is observed, never pushed, and it does not depend on the browser stay
 - A scheduled job (every minute) verifies every open Lightning session and hands paid ones to Medusa's own process-payment workflow: it completes a cart the customer paid but never submitted, and authorizes an order that was placed before the payment arrived.
 - If the customer places the order before paying (a custom storefront may allow it), the session is left in `pending_authorization`, the order shows as awaiting payment, and the job or the next status poll settles it once the invoice is paid.
 - An invoice keeps being verified for 10 minutes after it expires, since a payment in flight at expiry can still land.
+- Several Medusa instances can run the job and the route at once. Settling the same session twice is safe: Medusa keeps one payment per session, and the instance that loses the race sees the session authorized and moves on. Medusa itself logs the lost race as an authorization error before recovering.
 
 ## Requirements
 
@@ -219,7 +220,9 @@ npm run lint
 npm run build       # .medusa/server (plugin) + dist/storefront (component)
 ```
 
-After changing the plugin, `./demo/setup.sh` rebuilds it and reinstalls it into the demo apps; restart the backend afterwards. `npx medusa exec ./src/scripts/check-lightning.ts` in `demo/backend` prints the open Lightning sessions the settlement job would verify.
+After changing the plugin, `./demo/setup.sh` rebuilds it and reinstalls it into the demo apps; restart the backend afterwards. `npx medusa exec ./src/scripts/check-lightning.ts` in `demo/backend` prints the open Lightning sessions the settlement job would verify, and `npx medusa exec ./src/scripts/repro-deferred.ts` drives the order-first-pay-later path end to end against a stubbed breez.tips, so the settlement code can be exercised without spending sats.
+
+Note for `medusa develop`: its file watcher restarts the server on every change under the backend folder, and a stopped-looking dev server may still be alive. Stale instances all run the settlement job against the same database, which is safe but noisy. Check with `pgrep -fa "cli.js start"` before assuming only one server is running.
 
 Layout:
 
