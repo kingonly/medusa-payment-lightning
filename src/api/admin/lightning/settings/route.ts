@@ -1,14 +1,18 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import {
   fetchLnurlPayInfo,
-  getRegisteredProviderOptions,
   GLOW_SETUP_URL,
   LNURL_DOMAIN,
+  PROVIDER_ID_PREFIX,
+  providersFromConfig,
 } from "../../../../lib/lightning"
 
 export interface AdminLightningProvider {
-  lightning_address: string
-  expiry_seconds: number
+  /** The Medusa provider id, `pp_lightning_<id>`. */
+  provider_id: string
+  lightning_address: string | null
+  expiry_seconds: number | null
   /** Live LNURL-pay lookup of the configured address. */
   check: {
     ok: boolean
@@ -28,18 +32,24 @@ export interface AdminLightningSettingsResponse {
 /**
  * GET /admin/lightning/settings
  *
- * What the admin widget shows: the address the provider pays into (set in
- * medusa-config.ts) and whether breez.tips currently resolves it.
+ * What the admin widget shows: the address the provider pays into (read from
+ * the payment module config in medusa-config.ts) and whether breez.tips
+ * currently resolves it.
  */
-export const GET = async (_req: MedusaRequest, res: MedusaResponse<AdminLightningSettingsResponse>) => {
-  const options = getRegisteredProviderOptions()
+export const GET = async (req: MedusaRequest, res: MedusaResponse<AdminLightningSettingsResponse>) => {
+  const configured = providersFromConfig(req.scope.resolve(ContainerRegistrationKeys.CONFIG_MODULE))
   const providers = await Promise.all(
-    options.map(async (o): Promise<AdminLightningProvider> => {
+    configured.map(async (p): Promise<AdminLightningProvider> => {
+      const provider_id = `${PROVIDER_ID_PREFIX}${p.id}`
+      if (p.error !== undefined) {
+        return { provider_id, lightning_address: null, expiry_seconds: null, check: { ok: false, error: p.error } }
+      }
       try {
-        const info = await fetchLnurlPayInfo(o.lightningAddress)
+        const info = await fetchLnurlPayInfo(p.options.lightningAddress)
         return {
-          lightning_address: o.lightningAddress,
-          expiry_seconds: o.expirySeconds,
+          provider_id,
+          lightning_address: p.options.lightningAddress,
+          expiry_seconds: p.options.expirySeconds,
           check: {
             ok: true,
             min_sendable_sats: Math.ceil(info.minSendable / 1000),
@@ -48,8 +58,9 @@ export const GET = async (_req: MedusaRequest, res: MedusaResponse<AdminLightnin
         }
       } catch (e) {
         return {
-          lightning_address: o.lightningAddress,
-          expiry_seconds: o.expirySeconds,
+          provider_id,
+          lightning_address: p.options.lightningAddress,
+          expiry_seconds: p.options.expirySeconds,
           check: { ok: false, error: (e as Error).message },
         }
       }

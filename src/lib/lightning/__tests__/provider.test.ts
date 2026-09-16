@@ -8,7 +8,7 @@ import {
   RATES_MAX_AGE_MS,
   RATES_RETRY_AFTER_MS,
 } from "../constants"
-import { resetRegisteredProviderOptions, getRegisteredProviderOptions } from "../options"
+import { providersFromConfig } from "../options"
 import { resetRatesCache } from "../rates"
 import type { LightningSessionData } from "../session-data"
 import { fake, fakeLogger, hashOf, installFakeFetch, resetFake } from "./fakes"
@@ -35,7 +35,6 @@ afterAll(() => vi.unstubAllGlobals())
 afterEach(() => {
   resetFake()
   resetRatesCache()
-  resetRegisteredProviderOptions()
   vi.useRealTimers()
 })
 
@@ -62,11 +61,27 @@ describe("options", () => {
     })
   })
 
-  it("registers its options for the admin settings route", () => {
-    makeProvider()
-    expect(getRegisteredProviderOptions()).toEqual([
-      { lightningAddress: "shop@breez.tips", expirySeconds: DEFAULT_EXPIRY_SECONDS },
+  it("reads its provider entries from the payment module config for the admin route", () => {
+    const config = {
+      modules: {
+        payment: {
+          resolve: "@medusajs/medusa/payment",
+          options: {
+            providers: [
+              { resolve: "@medusajs/medusa/payment-stripe", id: "stripe", options: { apiKey: "sk" } },
+              { resolve: "medusa-payment-lightning/providers/lightning", id: "lightning", options: { lightningAddress: "Shop@breez.tips" } },
+              { resolve: "medusa-payment-lightning/providers/lightning", id: "broken", options: { lightningAddress: "x@example.com" } },
+            ],
+          },
+        },
+      },
+    }
+    expect(providersFromConfig(config)).toEqual([
+      { id: "lightning", options: { lightningAddress: "shop@breez.tips", expirySeconds: DEFAULT_EXPIRY_SECONDS } },
+      { id: "broken", error: expect.stringContaining("breez.tips") },
     ])
+    expect(providersFromConfig({ modules: {} })).toEqual([])
+    expect(providersFromConfig(undefined)).toEqual([])
   })
 })
 

@@ -13,8 +13,9 @@ type ProviderCheck = {
 type Settings = {
   configured: boolean
   providers: {
-    lightning_address: string
-    expiry_seconds: number
+    provider_id: string
+    lightning_address: string | null
+    expiry_seconds: number | null
     check: ProviderCheck
   }[]
   glow_setup_url: string
@@ -89,12 +90,12 @@ const LightningSettingsWidget = () => {
       )}
 
       {settings?.providers.map((p) => (
-        <div key={p.lightning_address} className="px-6 py-4 grid grid-cols-2 gap-y-3 small:grid-cols-3">
+        <div key={p.provider_id} className="px-6 py-4 grid grid-cols-2 gap-y-3 small:grid-cols-3">
           <Text size="small" className="text-ui-fg-subtle">
             Lightning address
           </Text>
           <Text size="small" className="small:col-span-2 font-mono">
-            {p.lightning_address}
+            {p.lightning_address ?? "invalid configuration"}
           </Text>
 
           <Text size="small" className="text-ui-fg-subtle">
@@ -110,7 +111,7 @@ const LightningSettingsWidget = () => {
             Invoice expiry
           </Text>
           <Text size="small" className="small:col-span-2">
-            {formatExpiry(p.expiry_seconds)}
+            {p.expiry_seconds === null ? "invalid configuration" : formatExpiry(p.expiry_seconds)}
           </Text>
 
           <Text size="small" className="text-ui-fg-subtle">

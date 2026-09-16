@@ -16,6 +16,7 @@ import {
 } from "../settle"
 import settleLightningPayments from "../../../jobs/settle-lightning-payments"
 import { GET as getStatus } from "../../../api/store/lightning/payment-sessions/[id]/route"
+import { GET as getAdminSettings } from "../../../api/admin/lightning/settings/route"
 import { fake, fakeLogger, hashOf, installFakeFetch, resetFake } from "./fakes"
 
 const sessionData = (overrides: Partial<LightningSessionData> = {}): LightningSessionData => {
@@ -60,6 +61,19 @@ const fakeContainer = (rows: PaymentSessionRow[]) => {
     resolve: (key: string) => {
       if (key === "logger") return logger
       if (key === "query") return { graph }
+      if (key === "configModule") {
+        return {
+          modules: {
+            payment: {
+              options: {
+                providers: [
+                  { resolve: "medusa-payment-lightning/providers/lightning", id: "lightning", options: { lightningAddress: "shop@breez.tips" } },
+                ],
+              },
+            },
+          },
+        }
+      }
       throw new Error(`unexpected resolve ${key}`)
     },
   }
@@ -274,5 +288,26 @@ describe("store status route", () => {
       code: "payment_session_not_found",
     })
     await expect(call([], "payses_none")).rejects.toMatchObject({ code: "payment_session_not_found" })
+  })
+})
+
+describe("admin settings route", () => {
+  it("reports the configured address with a live check, before any checkout ran", async () => {
+    const { container } = fakeContainer([])
+    const json = vi.fn()
+    await getAdminSettings({ scope: container } as never, { json } as never)
+    expect(json).toHaveBeenCalledWith({
+      configured: true,
+      providers: [
+        {
+          provider_id: "pp_lightning_lightning",
+          lightning_address: "shop@breez.tips",
+          expiry_seconds: 900,
+          check: { ok: true, min_sendable_sats: 1, max_sendable_sats: 100_000_000 },
+        },
+      ],
+      glow_setup_url: "https://breez.technology/glow/",
+      lnurl_domain: "breez.tips",
+    })
   })
 })

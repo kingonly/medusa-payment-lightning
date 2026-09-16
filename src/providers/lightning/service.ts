@@ -39,7 +39,6 @@ import {
   PROVIDER_IDENTIFIER,
   quoteFiat,
   refreshSessionData,
-  registerProviderOptions,
   requestInvoice,
   resolveOptions,
   type ResolvedLightningOptions,
@@ -74,7 +73,6 @@ export default class LightningProviderService extends AbstractPaymentProvider<Li
     super(cradle as unknown as Record<string, unknown>, options)
     this.logger_ = cradle.logger
     this.options_ = resolveOptions(options)
-    registerProviderOptions(this.options_)
   }
 
   get options(): ResolvedLightningOptions {
