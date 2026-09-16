@@ -121,6 +121,8 @@ The provider refuses to start with a missing or non-breez.tips address, or an ex
 npm install medusa-payment-lightning
 ```
 
+The Medusa packages are optional peer dependencies, so installing the plugin in a storefront pulls in only the component and its QR code dependency, not the Medusa backend.
+
 ```tsx
 "use client"
 import { LightningPayment } from "medusa-payment-lightning/storefront"

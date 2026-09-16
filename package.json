@@ -1,6 +1,6 @@
 {
   "name": "medusa-payment-lightning",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bitcoin (Lightning) payment provider for Medusa v2. Customers pay a Lightning invoice, funds land in the merchant's own Glow wallet; no node, no custody, no SDK.",
   "author": "Roy Sheinfeld",
   "license": "MIT",
@@ -89,7 +89,7 @@
   "packageManager": "npm@11.9.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kingonly/medusa-payment-lightning.git"
+    "url": "git+https://github.com/kingonly/medusa-payment-lightning.git"
   },
   "homepage": "https://github.com/kingonly/medusa-payment-lightning#readme",
   "bugs": {
@@ -106,6 +106,27 @@
       "optional": true
     },
     "@medusajs/js-sdk": {
+      "optional": true
+    },
+    "@medusajs/admin-sdk": {
+      "optional": true
+    },
+    "@medusajs/cli": {
+      "optional": true
+    },
+    "@medusajs/framework": {
+      "optional": true
+    },
+    "@medusajs/icons": {
+      "optional": true
+    },
+    "@medusajs/medusa": {
+      "optional": true
+    },
+    "@medusajs/test-utils": {
+      "optional": true
+    },
+    "@medusajs/ui": {
       "optional": true
     }
   }
